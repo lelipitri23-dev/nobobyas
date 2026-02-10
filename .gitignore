@@ -1,0 +1,14 @@
+.env
+.qodo/
+.vscode/
+node_modules/
+scraper.js
+dd.js
+url.txt
+delete.js
+scaper.js
+history.json
+history_indexnow.json
+gg.py
+now.py
+service_account.json
