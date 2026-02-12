@@ -20,7 +20,7 @@ const myCache = new NodeCache({ stdTTL: 600 });
 // ==========================================
 // 1. DATABASE CONNECTION
 // ==========================================
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/bokeptube')
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/RumahBokep')
     .then(() => console.log('✅ MongoDB Connected'))
     .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
@@ -34,7 +34,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'bokeptube-secret-key',
+    secret: process.env.SESSION_SECRET || 'BokepTube-secret-key',
     resave: false,
     saveUninitialized: true,
     cookie: { maxAge: 3600000 } // 1 Jam
@@ -71,7 +71,8 @@ const cacheMiddleware = (duration) => (req, res, next) => {
 // ==========================================
 app.use((req, res, next) => {
     res.locals.worker_url = process.env.WORKER_URL || 'https://cosplay.gratisanwibu.workers.dev';
-    const site_url = process.env.SITE_URL || 'http://localhost:3000';
+    const protocol = req.get('host').includes('localhost') ? 'http' : 'https';
+    const site_url = `${protocol}://${req.get('host')}`;
     const site_name = "BokepTube";
     res.locals.site_url = site_url;
     res.locals.site_name = site_name;
@@ -80,7 +81,7 @@ app.use((req, res, next) => {
     
     // Default SEO Values
     res.locals.current_title = `${site_name} - Streaming Video Bokep Terbaru`;
-    res.locals.current_desc = `Nonton Bokep Terbaru 2025. BokepTube adalah situs Bokep, Bokep Indo, Bokep Jepang, bokep bocil, bokep viral terlengkap dan terupdate. ${site_name}.`;
+    res.locals.current_desc = `Nonton Bokep Terbaru 2026. BokepTube adalah situs Bokep, Bokep Indo, Bokep Jepang, bokep bocil, bokep viral terlengkap dan terupdate. ${site_name}.`;
     res.locals.current_image = `${site_url}/uploads/default-poster.jpg`;
     res.locals.current_url = `${site_url}${req.originalUrl}`;
     
@@ -509,66 +510,54 @@ app.get('/cosplay', cacheMiddleware(900), async (req, res) => {
 // 7. SITEMAP & RSS FEED ROUTES (NO CACHE)
 // ==========================================
 
-// 1. Main RSS Feed (Video + Cosplay)
+// 1. Main RSS Feed
 app.get('/rss', async (req, res) => {
     try {
-        const site_url = process.env.SITE_URL || 'http://localhost:3000';
-        
-        // Ambil Video & Cosplay Terbaru
-        const videos = await Video.find().sort({ created_at: -1 }).limit(30);
-        const cosplays = await Cosplay.find().sort({ created_at: -1 }).limit(20);
+        // --- UBAHAN: DYNAMIC URL ---
+        const protocol = req.get('host').includes('localhost') ? 'http' : 'https';
+        const site_url = `${protocol}://${req.get('host')}`;
 
-        // Gabungkan dan Urutkan berdasarkan waktu
-        const allItems = [...videos.map(v => ({...v.toObject(), type: 'video'})), ...cosplays.map(c => ({...c.toObject(), type: 'cosplay'}))]
-            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
+        const limit = 50;
+        const videos = await Video.find().sort({ created_at: -1 }).limit(limit);
         const lastBuildDate = new Date().toUTCString();
 
         let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
     <channel>
-        <title>BokepTube - Update Terbaru</title>
+        <title>KingBokep - Video Terbaru</title>
         <link>${site_url}</link>
-        <description>Video viral dan koleksi cosplay terbaru di BokepTube</description>
+        <description>Nonton video viral terbaru di KingBokep</description>
         <language>id-ID</language>
         <lastBuildDate>${lastBuildDate}</lastBuildDate>
         <atom:link href="${site_url}/rss" rel="self" type="application/rss+xml" />`;
 
-        allItems.forEach(item => {
-            const isVideo = item.type === 'video';
-            const itemUrl = isVideo ? `${site_url}/video/${item.slug}` : `${site_url}/cosplay/${item.slug}`;
-            
-            // Thumbnail Logic
+        videos.forEach(vid => {
+            const videoLink = `${site_url}/video/${vid.slug}`;
             let thumbUrl = `${site_url}/uploads/default-poster.jpg`;
-            const rawThumb = isVideo ? item.thumbnail : (item.gallery?.[0] || '');
-            
-            if (rawThumb) {
-                thumbUrl = rawThumb.startsWith('http') ? rawThumb : `${site_url}/${rawThumb}`;
+            if (vid.thumbnail) {
+                thumbUrl = vid.thumbnail.startsWith('http') ? vid.thumbnail : `${site_url}/${vid.thumbnail}`;
             }
 
-            const descText = isVideo ? `Nonton video ${item.title}` : `Koleksi foto cosplay ${item.title}`;
-            
             xml += `
         <item>
-            <title><![CDATA[${item.title}]]></title>
-            <link>${itemUrl}</link>
-            <guid isPermaLink="true">${itemUrl}</guid>
+            <title><![CDATA[${vid.title}]]></title>
+            <link>${videoLink}</link>
+            <guid isPermaLink="true">${videoLink}</guid>
             <description><![CDATA[
-                <img src="${thumbUrl}" width="320" style="object-fit:cover;" /><br/>
-                <p>${descText}</p>
-                <p><strong>Type:</strong> ${isVideo ? 'Video' : 'Cosplay Album'}</p>
+                <img src="${thumbUrl}" width="320" height="180" style="object-fit:cover;" /><br/>
+                <p>${(vid.description || '').substring(0, 300)}...</p>
+                <p><strong>Durasi:</strong> ${res.locals.formatDuration(vid.duration_sec)} | <strong>Views:</strong> ${vid.views || 0}</p>
             ]]></description>
             <media:content url="${thumbUrl}" medium="image">
-                <media:title type="plain"><![CDATA[${item.title}]]></media:title>
+                <media:title type="plain"><![CDATA[${vid.title}]]></media:title>
             </media:content>
-            <pubDate>${new Date(item.created_at).toUTCString()}</pubDate>
+            <pubDate>${new Date(vid.created_at).toUTCString()}</pubDate>
         </item>`;
         });
 
         xml += `
     </channel>
 </rss>`;
-
         res.header('Content-Type', 'application/xml');
         res.send(xml);
     } catch (err) {
@@ -576,55 +565,51 @@ app.get('/rss', async (req, res) => {
     }
 });
 
-// 2. RSS by Category (Support Cosplay)
+// 2. RSS by Category
 app.get('/rss/category/:slug', async (req, res) => {
     try {
-        const site_url = process.env.SITE_URL || 'http://localhost:3000';
-        const rawSlug = decodeURIComponent(req.params.slug);
-        const searchKeyword = escapeRegex(rawSlug.replace(/-/g, ' '));
-        
-        // Cari di Video & Cosplay
-        const videos = await Video.find({ categories: { $regex: searchKeyword, $options: 'i' } }).sort({ created_at: -1 }).limit(20);
-        const cosplays = await Cosplay.find({ categories: { $regex: searchKeyword, $options: 'i' } }).sort({ created_at: -1 }).limit(10);
+        // --- UBAHAN: DYNAMIC URL ---
+        const protocol = req.get('host').includes('localhost') ? 'http' : 'https';
+        const site_url = `${protocol}://${req.get('host')}`;
 
-        const allItems = [...videos.map(v => ({...v.toObject(), type: 'video'})), ...cosplays.map(c => ({...c.toObject(), type: 'cosplay'}))]
-            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const categorySlug = req.params.slug;
+        const categoryName = categorySlug.replace(/-/g, ' '); 
+        
+        const videos = await Video.find({ 
+            categories: { $regex: categoryName, $options: 'i' } 
+        }).sort({ created_at: -1 }).limit(30);
 
         let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
-        <title>Kategori: ${rawSlug}</title>
+        <title>KingBokep Kategori: ${categoryName}</title>
         <link>${site_url}</link>
-        <description>Feed kategori ${rawSlug}</description>
+        <description>Feed terbaru dari kategori ${categoryName}</description>
         <language>id-ID</language>
-        <atom:link href="${site_url}/rss/category/${req.params.slug}" rel="self" type="application/rss+xml" />`;
+        <atom:link href="${site_url}/rss/category/${categorySlug}" rel="self" type="application/rss+xml" />`;
 
-        allItems.forEach(item => {
-            const isVideo = item.type === 'video';
-            const itemUrl = isVideo ? `${site_url}/video/${item.slug}` : `${site_url}/cosplay/${item.slug}`;
-            
-            // Thumbnail Logic
+        videos.forEach(vid => {
             let thumbUrl = `${site_url}/uploads/default-poster.jpg`;
-            const rawThumb = isVideo ? item.thumbnail : (item.gallery?.[0] || '');
-            if (rawThumb) thumbUrl = rawThumb.startsWith('http') ? rawThumb : `${site_url}/${rawThumb}`;
+            if (vid.thumbnail) {
+                thumbUrl = vid.thumbnail.startsWith('http') ? vid.thumbnail : `${site_url}/${vid.thumbnail}`;
+            }
 
             xml += `
         <item>
-            <title><![CDATA[${item.title}]]></title>
-            <link>${itemUrl}</link>
-            <guid>${itemUrl}</guid>
+            <title><![CDATA[${vid.title}]]></title>
+            <link>${site_url}/video/${vid.slug}</link>
+            <guid>${site_url}/video/${vid.slug}</guid>
             <description><![CDATA[
                 <img src="${thumbUrl}" width="320" /><br/>
-                ${item.title} (${isVideo ? 'Video' : 'Cosplay'})
+                ${(vid.description || '').substring(0, 200)}...
             ]]></description>
-            <pubDate>${new Date(item.created_at).toUTCString()}</pubDate>
+            <pubDate>${new Date(vid.created_at).toUTCString()}</pubDate>
         </item>`;
         });
 
         xml += `
     </channel>
 </rss>`;
-
         res.header('Content-Type', 'application/xml');
         res.send(xml);
     } catch (err) {
@@ -632,101 +617,137 @@ app.get('/rss/category/:slug', async (req, res) => {
     }
 });
 
-// 3. Video Sitemap (Google) - HANYA VIDEO
+// 3. Video Sitemap (Google)
 app.get('/sitemap-video.xml', async (req, res) => {
     try {
-        const site_url = process.env.SITE_URL || 'http://localhost:3000';
-        const videos = await Video.find().select('title slug description thumbnail duration_sec tags created_at embed_url').sort({ created_at: -1 }).limit(1000);
+        // --- UBAHAN: DYNAMIC URL ---
+        const protocol = req.get('host').includes('localhost') ? 'http' : 'https';
+        const site_url = `${protocol}://${req.get('host')}`;
+        
+        const videos = await Video.find()
+            .select('title slug description thumbnail duration_sec tags created_at embed_url')
+            .sort({ created_at: -1 })
+            .limit(1000);
 
         let xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
-    <url><loc>${site_url}/</loc><priority>1.0</priority></url>`;
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+    <url>
+        <loc>${site_url}/</loc>
+        <lastmod>${new Date().toISOString()}</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>1.0</priority>
+    </url>`;
 
         videos.forEach(vid => {
             const pageUrl = `${site_url}/video/${vid.slug}`;
             let thumbUrl = `${site_url}/uploads/default-poster.jpg`;
-            if (vid.thumbnail) thumbUrl = vid.thumbnail.startsWith('http') ? vid.thumbnail : `${site_url}/${vid.thumbnail}`;
-            const playerLoc = `https://round-wave-fbe6.gordon96376-f42.workers.dev/?url=${encodeURIComponent('https:'+vid.embed_url)}`;
+            if (vid.thumbnail) {
+                thumbUrl = vid.thumbnail.startsWith('http') ? vid.thumbnail : `${site_url}/${vid.thumbnail}`;
+            }
+            
+            const embedUrlFull = `https:${vid.embed_url}`;
+            const playerLoc = `https://round-wave-fbe6.gordon96376-f42.workers.dev/?url=${encodeURIComponent(embedUrlFull)}`;
             
             let videoTags = '';
             if (vid.tags && vid.tags.length > 0) {
-                vid.tags.slice(0, 32).forEach(tag => videoTags += `<video:tag><![CDATA[${tag}]]></video:tag>`);
+                vid.tags.slice(0, 32).forEach(tag => {
+                   videoTags += `<video:tag><![CDATA[${tag}]]></video:tag>`;
+                });
             }
 
-            xml += `<url><loc>${pageUrl}</loc><video:video>
+            xml += `
+    <url>
+        <loc>${pageUrl}</loc>
+        <lastmod>${new Date(vid.created_at).toISOString()}</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+        <video:video>
             <video:thumbnail_loc>${thumbUrl}</video:thumbnail_loc>
             <video:title><![CDATA[${vid.title}]]></video:title>
             <video:description><![CDATA[${(vid.description || '').substring(0, 2000)}]]></video:description>
             <video:player_loc allow_embed="yes" autoplay="ap=1">${playerLoc}</video:player_loc>
             <video:duration>${Math.round(vid.duration_sec || 0)}</video:duration>
             <video:publication_date>${new Date(vid.created_at).toISOString()}</video:publication_date>
+            <video:family_friendly>no</video:family_friendly>
+            <video:uploader info="${site_url}">KingBokep</video:uploader>
             ${videoTags}
-            </video:video></url>`;
+        </video:video>
+    </url>`;
         });
-        xml += `</urlset>`;
+
+        xml += `
+</urlset>`;
         res.header('Content-Type', 'application/xml');
         res.send(xml);
-    } catch (err) { res.status(500).send(err.message); }
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
 });
 
-// 4. General Sitemap (Video & Cosplay)
+// 4. General Sitemap (With Images)
 app.get('/sitemap.xml', async (req, res) => {
     try {
-        const site_url = process.env.SITE_URL || 'http://localhost:3000';
+        // --- UBAHAN: DYNAMIC URL ---
+        const protocol = req.get('host').includes('localhost') ? 'http' : 'https';
+        const site_url = `${protocol}://${req.get('host')}`;
         
-        // Ambil Video & Cosplay
         const videos = await Video.find().select('slug upload_date title thumbnail tags created_at').sort({ created_at: -1 });
-        const cosplays = await Cosplay.find().select('slug created_at title gallery tags').sort({ created_at: -1 });
 
         let xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
-    <url><loc>${site_url}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
-    <url><loc>${site_url}/cosplay</loc><changefreq>daily</changefreq><priority>0.9</priority></url>`;
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" 
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+    <url>
+        <loc>${site_url}/</loc>
+        <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>1.0</priority>
+    </url>`;
 
         const uniqueTags = new Set();
         
-        // --- Loop Video ---
         videos.forEach(vid => {
-            const url = `${site_url}/video/${vid.slug}`;
-            let thumb = `${site_url}/uploads/default-poster.jpg`;
-            if (vid.thumbnail) thumb = vid.thumbnail.startsWith('http') ? vid.thumbnail : `${site_url}/${vid.thumbnail}`;
-            
-            if (vid.tags) vid.tags.forEach(t => uniqueTags.add(t.toLowerCase().trim().replace(/ /g, '-')));
+            const videoUrl = `${site_url}/video/${vid.slug}`;
+            let thumbUrl = `${site_url}/uploads/default-poster.jpg`;
+            if (vid.thumbnail) {
+                thumbUrl = vid.thumbnail.startsWith('http') ? vid.thumbnail : `${site_url}/${vid.thumbnail}`;
+            }
+
+            const date = new Date(vid.upload_date || Date.now()).toISOString().split('T')[0];
+
+            if (vid.tags && vid.tags.length > 0) {
+                vid.tags.forEach(t => {
+                     if (t) {
+                        const tagSlug = t.toLowerCase().trim().replace(/ /g, '-');
+                        uniqueTags.add(tagSlug);
+                     }
+                });
+            }
 
             xml += `
     <url>
-        <loc>${url}</loc>
-        <lastmod>${new Date(vid.upload_date || vid.created_at).toISOString().split('T')[0]}</lastmod>
+        <loc>${videoUrl}</loc>
+        <lastmod>${date}</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.8</priority>
-        <image:image><image:loc>${thumb}</image:loc><image:title><![CDATA[${vid.title}]]></image:title></image:image>
+        <image:image>
+            <image:loc>${thumbUrl}</image:loc>
+            <image:title><![CDATA[${vid.title}]]></image:title>
+        </image:image>
     </url>`;
         });
 
-        // --- Loop Cosplay ---
-        cosplays.forEach(cos => {
-            const url = `${site_url}/cosplay/${cos.slug}`;
-            let thumb = `${site_url}/uploads/default-cosplay.jpg`;
-            if (cos.gallery && cos.gallery.length > 0) thumb = cos.gallery[0];
-
-            if (cos.tags) cos.tags.forEach(t => uniqueTags.add(t.toLowerCase().trim().replace(/ /g, '-')));
-
-            xml += `
-    <url>
-        <loc>${url}</loc>
-        <lastmod>${new Date(cos.created_at).toISOString().split('T')[0]}</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.8</priority>
-        <image:image><image:loc>${thumb}</image:loc><image:title><![CDATA[${cos.title}]]></image:title></image:image>
-    </url>`;
-        });
-
-        // --- Loop Tags Pages ---
         uniqueTags.forEach(tagSlug => {
-            if(tagSlug) xml += `<url><loc>${site_url}/tag/${tagSlug}</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>`;
+            xml += `
+    <url>
+        <loc>${site_url}/tag/${tagSlug}</loc>
+        <changefreq>weekly</changefreq>
+        <priority>0.6</priority>
+    </url>`;
         });
 
-        xml += `</urlset>`;
+        xml += `
+</urlset>`;
         res.header('Content-Type', 'application/xml');
         res.send(xml);
     } catch (err) {
@@ -809,6 +830,42 @@ app.post('/api/scrape', async (req, res) => {
         console.error(err);
         res.send(`❌ Error: ${err.message}`);
     }
+});
+
+// 5. Dynamic Robots.txt
+app.get('/robots.txt', (req, res) => {
+    // Deteksi Protocol & Domain Otomatis
+    const protocol = req.get('host').includes('localhost') ? 'http' : 'https';
+    const site_url = `${protocol}://${req.get('host')}`;
+
+    const content = `User-agent: *
+Allow: /
+
+# 1. Block Admin & API (Keamanan)
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+
+# 2. Block Internal Search (SEO Best Practice)
+# Google menyarankan untuk tidak mengindeks hasil pencarian internal
+Disallow: /search
+Disallow: /search*
+Disallow: /search.php
+Disallow: /*?q=
+Disallow: /*&q=
+
+# 3. Block System Files / Legacy
+Disallow: /includes/
+Disallow: /login.php
+Disallow: /admin.php
+
+# 4. Sitemaps (Agar Googlebot mudah menemukan konten)
+Sitemap: ${site_url}/sitemap.xml
+Sitemap: ${site_url}/sitemap-video.xml`;
+
+    // Set Header agar browser/bot tahu ini adalah file text biasa
+    res.type('text/plain');
+    res.send(content);
 });
 
 // ==========================================
