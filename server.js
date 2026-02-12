@@ -309,7 +309,7 @@ app.get('/tag/:tag', cacheMiddleware(1800), async (req, res) => {
         // 1. Ambil Video
         const videos = await Video.find(query).sort({ created_at: -1 }).skip(skip).limit(limit);
         const totalVideos = await Video.countDocuments(query);
-        const seoDescription = `Kumpulan video ${display_tag} dengan berbagai jenis adegan. Koleksi ${display_tag} terlengkap. Update terbaru setiap hari. Nonton video ${display_tag} gratis tanpa iklan di ${res.locals.site_name}.`;
+        const seoDescription = `Kumpulan video ${display_tag} dengan berbagai jenis adegan. Koleksi ${display_tag} terlengkap. Update terbaru setiap hari. Nonton video ${display_tag} gratis tanpa iklan di ${res.locals.site_name}${page_label}.`;
         // 2. Ambil Cosplay (Limit 12, Terbaru)
         const cosplays = await Cosplay.find(query).sort({ created_at: -1 }).limit(12);
 
@@ -349,7 +349,7 @@ app.get('/category/:slug', cacheMiddleware(1800), async (req, res) => {
         const cosplays = await Cosplay.find(query).sort({ created_at: -1 }).limit(12);
         const totalPages = Math.ceil(totalVideos / limit);
         
-        const seoDescription = `Kumpulan video ${display_cat} dengan berbagai jenis adegan. Koleksi ${display_cat} terlengkap. Update terbaru setiap hari. Nonton video ${display_cat} gratis tanpa iklan di ${res.locals.site_name}.`;
+        const seoDescription = `Kumpulan video ${display_cat} dengan berbagai jenis adegan. Koleksi ${display_cat} terlengkap. Update terbaru setiap hari. Nonton video ${display_cat} gratis tanpa iklan di ${res.locals.site_name}${page_label}.`;
         
         res.render('category', {
             videos, cosplays,
