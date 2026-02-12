@@ -162,8 +162,8 @@ app.get('/', cacheMiddleware(300), async (req, res) => {
     }
 });
 
-// --- SINGLE VIDEO (Cache 1 Jam) ---
-app.get('/video/:slug', cacheMiddleware(3600), async (req, res) => {
+// --- SINGLE VIDEO (No Cache) ---
+app.get('/video/:slug', async (req, res) => {
     try {
         Video.updateOne({ slug: req.params.slug }, { $inc: { views: 1 } }).exec();
 
@@ -252,8 +252,8 @@ app.get('/video/:slug', cacheMiddleware(3600), async (req, res) => {
     }
 });
 
-// --- SEARCH (Cache 10 Menit) ---
-app.get('/search', cacheMiddleware(600), async (req, res) => {
+// --- SEARCH (No Cache) ---
+app.get('/search', async (req, res) => {
     try {
         const q = req.query.q || '';
         
@@ -292,8 +292,8 @@ app.get('/search', cacheMiddleware(600), async (req, res) => {
 });
 
 
-// --- TAGS (Cache 30 Menit) ---
-app.get('/tag/:tag', cacheMiddleware(1800), async (req, res) => {
+// --- TAGS (No Cache) ---
+app.get('/tag/:tag', async (req, res) => {
     try {
         const tagSlug = req.params.tag;
         const display_tag = tagSlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -312,10 +312,7 @@ app.get('/tag/:tag', cacheMiddleware(1800), async (req, res) => {
         const seoDescription = `Kumpulan video ${display_tag} dengan berbagai jenis adegan. Koleksi ${display_tag} terlengkap. Update terbaru setiap hari. Nonton video ${display_tag} gratis tanpa iklan di ${res.locals.site_name}${page_label}.`;
         // 2. Ambil Cosplay (Limit 12, Terbaru)
         const cosplays = await Cosplay.find(query).sort({ created_at: -1 }).limit(12);
-
         const totalPages = Math.ceil(totalVideos / limit);
-        
-        
         
         res.render('tags', {
             videos, 
@@ -330,8 +327,8 @@ app.get('/tag/:tag', cacheMiddleware(1800), async (req, res) => {
     }
 });
 
-// --- CATEGORY (Cache 30 Menit) ---
-app.get('/category/:slug', cacheMiddleware(1800), async (req, res) => {
+// --- CATEGORY (No Cache) ---
+app.get('/category/:slug', async (req, res) => {
     try {
         const Cosplay = require('./models/Cosplay');
         const rawSlug = decodeURIComponent(req.params.slug);
@@ -366,8 +363,8 @@ app.get('/category/:slug', cacheMiddleware(1800), async (req, res) => {
     }
 });
 
-// --- COSPLAY PAGE (Cache 1 Jam) ---
-app.get('/cosplay/:slug', cacheMiddleware(3600), async (req, res) => {
+// --- COSPLAY PAGE (No Cache) ---
+app.get('/cosplay/:slug', async (req, res) => {
     try {
         const Cosplay = require('./models/Cosplay'); 
         await Cosplay.updateOne({ slug: req.params.slug }, { $inc: { views: 1 } });
@@ -463,8 +460,8 @@ app.get('/cosplay/:slug', cacheMiddleware(3600), async (req, res) => {
     }
 });
 
-// --- COSPLAY INDEX / LIST PAGE (Cache 15 Menit) ---
-app.get('/cosplay', cacheMiddleware(900), async (req, res) => {
+// --- COSPLAY INDEX / LIST PAGE (No Cache) ---
+app.get('/cosplay', async (req, res) => {
     try {
         const Cosplay = require('./models/Cosplay'); // Pastikan model di-load
         
