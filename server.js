@@ -204,7 +204,6 @@ app.get('/video/:slug', cacheMiddleware(3600), async (req, res) => {
             seo_canonical: `${res.locals.site_url}/video/${video.slug}`,
 
             // Open Graph
-            og_locale: "id_ID",
             og_type: "article",
             og_image: meta_image,
             og_image_width: 854,
@@ -412,7 +411,6 @@ app.get('/cosplay/:slug', cacheMiddleware(3600), async (req, res) => {
             seo_canonical: `${res.locals.site_url}/cosplay/${cosplay.slug}`,
 
             // Open Graph (Facebook/WA)
-            og_locale: "id_ID",
             og_type: "article",
             og_image: mainImage,
             og_image_width: 800, // Standar Portrait/Vertical biasanya lebih cocok untuk cosplay, tapi 800x600 aman
