@@ -322,7 +322,7 @@ app.get('/tag/:tag', cacheMiddleware(1800), async (req, res) => {
             cosplays, // Kirim data cosplay ke view
             display_tag, tagSlug, currentPage: page, totalPages, totalVideos,
             current_title: `${display_tag}${page_label} | ${res.locals.site_name}`,
-            current_desc: seoDescription + page_label,
+            current_desc: seoDescription,
             seo_description: seoDescription
         });
     } catch (err) {
@@ -358,7 +358,7 @@ app.get('/category/:slug', cacheMiddleware(1800), async (req, res) => {
             currentPage: page, totalPages, totalVideos,
             rss_category_slug: rawSlug,
             current_title: `${display_cat}${page_label} | ${res.locals.site_name}`,
-            current_desc: seoDescription + page_label,
+            current_desc: seoDescription,
             seo_description: seoDescription
         });
     } catch (err) {
